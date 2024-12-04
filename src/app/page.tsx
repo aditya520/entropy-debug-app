@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState, useMemo } from "react"
 import { EntropyDeployments } from "@/store/EntropyDeployments"
-import { isValidTxHash, fetchTopics } from "@/lib/utils"
+import { isValidTxHash, fetchInfoFromTx } from "@/lib/utils"
 
 export default function PythEntropyDebugApp() {
   const [isMainnet, setIsMainnet] = useState(false);
@@ -30,7 +30,7 @@ export default function PythEntropyDebugApp() {
 
   const handleFetchInfo = async () => {
     try {
-      const receipt = await fetchTopics(txHash, selectedChain);
+      const receipt = await fetchInfoFromTx(txHash, selectedChain);
       console.log(receipt);
     } catch (error) {
       console.error("Error fetching transaction info:", error);
