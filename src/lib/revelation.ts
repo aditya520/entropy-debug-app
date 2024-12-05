@@ -1,4 +1,4 @@
-import { createPublicClient, http, parseEventLogs } from 'viem'
+import { createPublicClient, http, parseEventLogs, publicActions, PublicClient } from 'viem'
 import { EntropyAbi } from './EntropyAbi'
 import { EntropyDeployments } from "@/store/EntropyDeployments";
 
@@ -8,40 +8,42 @@ export async function fetchInfoFromTx(txHash: string, chain: string) {
     if (!deployment) {
       throw new Error(`Deployment for chain ${chain} not found`)
     }
-    console.log(deployment)
-  
     const publicClient = createPublicClient({
       transport: http(deployment.rpc)
-    })
-  
-    console.log(publicClient.chain)
+    }).extend(publicActions)
   
     const receipt = await publicClient.getTransactionReceipt({
       hash: txHash as `0x${string}`
     })
-  
-    console.log(receipt)
-  
     const logs = parseEventLogs({
       abi: EntropyAbi,
       logs: receipt.logs,
       eventName: "RequestedWithCallback"
     })
   
-    console.log(logs)
     const provider = logs[0].args.provider
     const sequenceNumber = logs[0].args.sequenceNumber
     const userRandomNumber = logs[0].args.userRandomNumber
   
     const revelation = await getRevelation(chain, Number(sequenceNumber))
-    console.log(revelation)
+
+    if (typeof revelation === "string") {
+      return revelation
+    } 
+    
+    if (typeof revelation === "object") {
+      return revelation.value.data
+    }
   
     return { provider, sequenceNumber, userRandomNumber, revelation }
   }
-  
-  export async function getRevelation(chain: string, sequenceNumber: number) {
-    const deployment = EntropyDeployments[chain]
-    if (!deployment) {
+
+
+
+
+export async function getRevelation(chain: string, sequenceNumber: number) {
+  const deployment = EntropyDeployments[chain]
+  if (!deployment) {
       throw new Error(`Deployment for chain ${chain} not found`)
     }
   
@@ -59,7 +61,7 @@ export async function fetchInfoFromTx(txHash: string, chain: string) {
           }
         }
       )
-      if (response.status === 403) {
+      if (response.status.toString().startsWith("4") || response.status.toString().startsWith("5")) {
         const text = await response.text()
         return text
       }
@@ -71,5 +73,5 @@ export async function fetchInfoFromTx(txHash: string, chain: string) {
     } catch (error) {
       console.error("Error fetching revelation:", error)
       return null
-    }
+        }
   }

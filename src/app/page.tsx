@@ -13,6 +13,7 @@ export default function PythEntropyDebugApp() {
   const [txHash, setTxHash] = useState("");
   const [error, setError] = useState("");
   const [selectedChain, setSelectedChain] = useState("");
+  const [fetchedData, setFetchedData] = useState(null);
 
   const validateTxHash = (hash: string) => {
     if (!isValidTxHash(hash) && hash !== "") {
@@ -32,6 +33,7 @@ export default function PythEntropyDebugApp() {
   const handleFetchInfo = async () => {
     try {
       const receipt = await fetchInfoFromTx(txHash, selectedChain);
+      setFetchedData(receipt);
       console.log(receipt);
     } catch (error) {
       console.error("Error fetching transaction info:", error);
@@ -85,6 +87,11 @@ export default function PythEntropyDebugApp() {
           Fetch Info
         </button>
       </div>
+      {fetchedData && (
+        <div className="mt-4 p-4 border rounded bg-gray-100 w-full">
+          <pre>{JSON.stringify(fetchedData, null, 2)}</pre>
+        </div>
+      )}
     </div>
   );
 }
