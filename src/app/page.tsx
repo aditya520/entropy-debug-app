@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useState, useMemo } from "react"
 import { EntropyDeployments } from "@/store/EntropyDeployments"
-import { isValidTxHash, fetchInfoFromTx } from "@/lib/utils"
+import { isValidTxHash } from "@/lib/utils"
+import { fetchInfoFromTx } from "@/lib/revelation"
 
 export default function PythEntropyDebugApp() {
   const [isMainnet, setIsMainnet] = useState(false);
