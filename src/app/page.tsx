@@ -6,14 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useMemo } from "react"
 import { EntropyDeployments } from "@/store/EntropyDeployments"
 import { isValidTxHash } from "@/lib/utils"
-import { fetchInfoFromTx } from "@/lib/revelation"
+import { requestCallback } from "@/lib/revelation"
 
 export default function PythEntropyDebugApp() {
   const [isMainnet, setIsMainnet] = useState(false);
   const [txHash, setTxHash] = useState("");
   const [error, setError] = useState("");
   const [selectedChain, setSelectedChain] = useState("");
-  const [fetchedData, setFetchedData] = useState(null);
+  const [fetchedData, setFetchedData] = useState<string | null>(null);
 
   const validateTxHash = (hash: string) => {
     if (!isValidTxHash(hash) && hash !== "") {
@@ -26,15 +26,14 @@ export default function PythEntropyDebugApp() {
 
   const availableChains = useMemo(() => {
     return Object.entries(EntropyDeployments)
-      .filter(([_, deployment]) => deployment.network === (isMainnet ? "mainnet" : "testnet"))
-      .map(([key, _]) => key);
+      .filter(([, deployment]) => deployment.network === (isMainnet ? "mainnet" : "testnet"))
+      .map(([key]) => key);
   }, [isMainnet]);
 
   const handleFetchInfo = async () => {
     try {
-      const receipt = await fetchInfoFromTx(txHash, selectedChain);
+      const receipt = await requestCallback(txHash, selectedChain);
       setFetchedData(receipt);
-      console.log(receipt);
     } catch (error) {
       console.error("Error fetching transaction info:", error);
     }
