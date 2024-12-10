@@ -2,12 +2,16 @@ import { createPublicClient, http, parseEventLogs, publicActions } from 'viem'
 import { EntropyAbi } from './EntropyAbi'
 import { EntropyDeployment, EntropyDeployments } from "@/store/EntropyDeployments";
 
-
+interface Revelation {
+  value: {
+    data: string;
+  };
+}
 
 export async function requestCallback(txHash: string, chain: string): Promise<string> {
   console.log("requestCallback", txHash, chain)
   const deployment = EntropyDeployments[chain]
-  console.log("requestCallback", txHash, chain)
+  console.log("deployment", deployment)
   if (!deployment) {
     console.error("Deployment for chain not found", chain)
     throw new Error(`Deployment for chain ${chain} not found`)
@@ -24,7 +28,7 @@ export async function requestCallback(txHash: string, chain: string): Promise<st
     throw new Error("We found an error message: " + error)
   }
 
-  let revelation: string | object
+  let revelation: string | Revelation
   try {
     revelation = await getRevelation(chain, Number(sequenceNumber))
   } catch (error) {
