@@ -3,23 +3,61 @@
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { EntropyDeployments } from "@/store/EntropyDeployments"
 import { isValidTxHash } from "@/lib/utils"
 import { requestCallback } from "@/lib/revelation"
 
+class BaseError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "BaseError"
+  }
+}
+
+class InvalidTxHashError extends BaseError {
+  constructor(message: string) {
+    super(message)
+    this.name = "InvalidTxHashError"
+  }
+}
+
+// class RevelationNotFoundError extends BaseError {
+//   constructor(message: string) {
+//     super(message)
+//     this.name = "RevelationNotFoundError"
+//   }
+// }
+
+
+enum TxStateType {
+  NotLoaded,
+  Loading,
+  Success,
+  Error
+}
+
+const TxState = {
+  NotLoaded: () => ({status: TxStateType.NotLoaded as const}),
+  Loading: () => ({status: TxStateType.Loading as const}),
+  Success: (data: string) => ({status: TxStateType.Success as const, data}),
+  Error: (error: unknown) => ({status: TxStateType.Error as const, error}),
+}
+
+type TxStateContext = ReturnType<typeof TxState.NotLoaded> | ReturnType<typeof TxState.Loading> | ReturnType<typeof TxState.Success> | ReturnType<typeof TxState.Error>
+
 export default function PythEntropyDebugApp() {
-  const [isMainnet, setIsMainnet] = useState(false);
-  const [txHash, setTxHash] = useState("");
-  const [error, setError] = useState("");
-  const [selectedChain, setSelectedChain] = useState("");
-  const [fetchedData, setFetchedData] = useState<string | null>(null);
+  const [state, setState] = useState<TxStateContext>(TxState.NotLoaded());
+  const [isMainnet, setIsMainnet] = useState<boolean>(false);
+  const [txHash, setTxHash] = useState<string>("");
+  const [error, setError] = useState<BaseError | null>(null);
+  const [selectedChain, setSelectedChain] = useState<string>("");
 
   const validateTxHash = (hash: string) => {
     if (!isValidTxHash(hash) && hash !== "") {
-      setError("Transaction hash must be 64 hexadecimal characters");
+      setError(new InvalidTxHashError("Transaction hash must be 64 hexadecimal characters"));
     } else {
-      setError("");
+      setError(null);
     }
     setTxHash(hash);
   };
@@ -30,14 +68,33 @@ export default function PythEntropyDebugApp() {
       .map(([key]) => key);
   }, [isMainnet]);
 
-  const handleFetchInfo = async () => {
-    try {
-      const receipt = await requestCallback(txHash, selectedChain);
-      setFetchedData(receipt);
-    } catch (error) {
-      console.error("Error fetching transaction info:", error);
+  const oncClickFetchInfo = useCallback(() => {
+    setState(TxState.Loading());
+    requestCallback(txHash, selectedChain)
+      .then((data) => {
+        setState(TxState.Success(data));
+      })
+      .catch((error) => {
+        setState(TxState.Error(error));
+      });
+  }, []);
+
+  const Info = ({state}: {state: TxStateContext}) => {
+    switch (state.status) {
+      case TxStateType.NotLoaded:
+        return <div>Not loaded</div>
+      case TxStateType.Loading:
+        return <div>Loading...</div>
+      case TxStateType.Success:
+        return <pre><code className="language-bash">{state.data}</code></pre>
+      case TxStateType.Error:
+        return (
+          <div className="mt-4 p-4 bg-red-100 border border-red-400 rounded">
+            <div className="text-red-600">{String(state.error)}</div>
+          </div>
+        )
     }
-  };
+  }
 
   return (
     <div className="flex flex-col items-center justify-start h-screen">
@@ -67,7 +124,7 @@ export default function PythEntropyDebugApp() {
         </Select>
       </div>
       <div className="mt-4">
-        <label htmlFor="tx-hash" className="mr-2">Transaction Hash:</label>
+        <label htmlFor="tx-hash" className="mr-2">Request Callback Transaction Hash:</label>
         <Input 
           minLength={64}
           id="tx-hash" 
@@ -76,21 +133,17 @@ export default function PythEntropyDebugApp() {
           value={txHash}
           onChange={(e) => validateTxHash(e.target.value)}
         />
-        {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+        {error && <p className="text-red-500 text-sm mt-1">{error.message}</p>}
       </div>
       <div className="mt-4">
         <button 
           className="bg-blue-500 text-white p-2 rounded"
-          onClick={handleFetchInfo}
+          onClick={oncClickFetchInfo}
         >
           Fetch Info
         </button>
       </div>
-      {fetchedData && (
-        <div className="mt-4 p-4 border rounded bg-gray-100 w-full">
-          <pre>{JSON.stringify(fetchedData, null, 2)}</pre>
-        </div>
-      )}
+      <Info state={state} />
     </div>
   );
 }

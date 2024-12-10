@@ -4,31 +4,46 @@ import { EntropyDeployment, EntropyDeployments } from "@/store/EntropyDeployment
 
 
 
-export async function requestCallback(txHash: string, chain: string) {
+export async function requestCallback(txHash: string, chain: string): Promise<string> {
+  console.log("requestCallback", txHash, chain)
   const deployment = EntropyDeployments[chain]
+  console.log("requestCallback", txHash, chain)
   if (!deployment) {
+    console.error("Deployment for chain not found", chain)
     throw new Error(`Deployment for chain ${chain} not found`)
   }
 
-  const { provider, sequenceNumber, userRandomNumber } = await fetchInfoFromTx(txHash, deployment)
-  const revelation = await getRevelation(chain, Number(sequenceNumber))
+  let provider: string
+  let sequenceNumber: bigint
+  let userRandomNumber: string
+
+  try {
+    ({ provider, sequenceNumber, userRandomNumber } = await fetchInfoFromTx(txHash, deployment))
+  } catch (error) {
+    console.error("Error fetching info from tx:", error)
+    throw new Error("We found an error message: " + error)
+  }
+
+  let revelation: string | object
+  try {
+    revelation = await getRevelation(chain, Number(sequenceNumber))
+  } catch (error) {
+    console.error("Error fetching revelation:", error)
+    throw new Error("We found an error message: " + error)
+  }
+
   console.log("revelation", revelation)
-  console.log("typeof revelation", typeof revelation)
 
   // It means the there is an error message
   if (typeof revelation === "string") {
-    return "We found an error message: " + revelation
+    console.error("We found an error message: " + revelation)
+    throw new Error("We found an error message: " + revelation)
   } 
-    
-  if (typeof revelation === "object") {
-    console.log("Hurray we found the revelation!: ", revelation)
-    const message = `Please run the following command to reveal the randomness: cast send ${deployment.address} 'revealWithCallback(address, uint64, bytes32, bytes32)' ${provider} ${sequenceNumber} ${userRandomNumber} ${revelation.value.data} -r ${deployment.rpc} --private-key <YOUR_PRIVATE_KEY>`
-    console.log("message", message)
-
-    return message
-  }
   
-  return null
+  const message = `cast send ${deployment.address} 'revealWithCallback(address, uint64, bytes32, bytes32)' ${provider} ${sequenceNumber} ${userRandomNumber} ${revelation.value.data} -r ${deployment.rpc} --private-key <YOUR_PRIVATE_KEY>`
+  console.log("message", message)
+  
+  return message
 }
 
   export async function fetchInfoFromTx(txHash: string, deployment: EntropyDeployment) { 
@@ -36,7 +51,7 @@ export async function requestCallback(txHash: string, chain: string) {
       transport: http(deployment.rpc)
     }).extend(publicActions)
     if (!publicClient) {
-      throw new Error(`Public client for chain ${deployment} not found`)
+      throw new Error(`Error creating public client for ${deployment}`)
     }
   
     const receipt = await publicClient.getTransactionReceipt({
@@ -53,10 +68,14 @@ export async function requestCallback(txHash: string, chain: string) {
       eventName: "RequestedWithCallback"
     })
     if (!logs) {
-      throw new Error(`Logs not found for ${txHash}`)
+      throw new Error(`Error parsing logs for ${txHash}. Are you sure you send the requestCallback Transaction?`)
     }
     console.log("logs: ", logs)
   
+    if (logs.length === 0) {
+      throw new Error(`No logs found for ${txHash}. Are you sure you send the requestCallback Transaction?`)
+    }
+
     const provider = logs[0].args.provider
     const sequenceNumber = logs[0].args.sequenceNumber
     const userRandomNumber = logs[0].args.userRandomNumber
@@ -87,12 +106,14 @@ export async function getRevelation(chain: string, sequenceNumber: number) {
         }
       )
     } catch (error) {
-      console.error("Error fetching revelation:", error)
-      return null
+      console.error("We found an error while fetching the revelation: " + error)
+      throw new Error("We found an error while fetching the revelation: " + error)
     }
 
   if (response.status.toString().startsWith("4") || response.status.toString().startsWith("5")) {
-    return await response.text()
+    const errorMessage = await response.text()
+    console.error("The provider returned an error:", errorMessage)
+    throw new Error("The provider returned an error: " + errorMessage)
   }
 
   return await response.json()
