@@ -77,7 +77,7 @@ export default function PythEntropyDebugApp() {
       .catch((error) => {
         setState(TxState.Error(error));
       });
-  }, []);
+  }, [txHash, selectedChain]);
 
   const Info = ({state}: {state: TxStateContext}) => {
     switch (state.status) {
