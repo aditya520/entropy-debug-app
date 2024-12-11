@@ -3,10 +3,16 @@
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { EntropyDeployments } from "@/store/EntropyDeployments"
 import { isValidTxHash } from "@/lib/utils"
 import { requestCallback } from "@/lib/revelation"
+import hljs from 'highlight.js/lib/core';
+import bash from 'highlight.js/lib/languages/bash';
+import 'highlight.js/styles/github-dark.css'; // You can choose different themes
+
+// Register the bash language
+hljs.registerLanguage('bash', bash);
 
 class BaseError extends Error {
   constructor(message: string) {
@@ -21,13 +27,6 @@ class InvalidTxHashError extends BaseError {
     this.name = "InvalidTxHashError"
   }
 }
-
-// class RevelationNotFoundError extends BaseError {
-//   constructor(message: string) {
-//     super(message)
-//     this.name = "RevelationNotFoundError"
-//   }
-// }
 
 
 enum TxStateType {
@@ -80,13 +79,39 @@ export default function PythEntropyDebugApp() {
   }, [txHash, selectedChain]);
 
   const Info = ({state}: {state: TxStateContext}) => {
+    const preRef = useRef<HTMLPreElement>(null);
+
+    useEffect(() => {
+      if (preRef.current && state.status === TxStateType.Success) {
+        hljs.highlightElement(preRef.current);
+      }
+    }, [state]);
+
     switch (state.status) {
       case TxStateType.NotLoaded:
         return <div>Not loaded</div>
       case TxStateType.Loading:
         return <div>Loading...</div>
       case TxStateType.Success:
-        return <pre><code className="language-bash">{state.data}</code></pre>
+        return (
+          <div className="mt-4 p-4 bg-gray-100 rounded w-full max-w-3xl">
+            <p className="mb-2">Please run the following command in your terminal:</p>
+            <div className="relative">
+              <pre 
+                ref={preRef}
+                className="bg-black text-white p-4 rounded overflow-x-auto whitespace-pre-wrap break-words"
+              >
+                <code className="language-bash">{state.data}</code>
+              </pre>
+              <button 
+                onClick={() => navigator.clipboard.writeText(state.data)}
+                className="absolute top-2 right-2 bg-gray-700 text-white px-3 py-1 rounded hover:bg-gray-600"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        )
       case TxStateType.Error:
         return (
           <div className="mt-4 p-4 bg-red-100 border border-red-400 rounded">
