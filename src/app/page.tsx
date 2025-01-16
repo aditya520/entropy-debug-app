@@ -149,7 +149,7 @@ export default function PythEntropyDebugApp() {
         </Select>
       </div>
       <div className="mt-4">
-        <label htmlFor="tx-hash" className="mr-2">Request Callback Transaction Hash:</label>
+        <label htmlFor="tx-hash" className="mr-2">Request Transaction Hash:</label>
         <Input 
           minLength={64}
           id="tx-hash" 
